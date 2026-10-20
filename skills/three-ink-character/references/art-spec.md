@@ -1,0 +1,105 @@
+# Art spec — getting a source image this pipeline can separate
+
+The separator assumes two things about its input: a **clean alpha matte** and **flat colours that sit
+on the three mixing lines**. An image generator will not give you either unless the prompt asks for
+them. This file is the prompt and the checklist that get you there.
+
+## Why the source has to be flat
+
+The separator projects every pixel onto the three mixing lines between cream, orange and black. A
+pixel that sits exactly on a line is a clean blend of two inks and splits predictably. A pixel that
+sits off every line is a fourth colour: the separator has to guess which two inks it belongs to, and
+the result reads as a muddy tone rather than a flat one.
+
+A gradient is the same failure spread over many pixels: every one of them is slightly off the line,
+so the whole area turns soft. So the requirement is not "three colours" but "three colours, each
+flat".
+
+## Prompt template
+
+Give the generator the pose and the framing you want, then this block:
+
+```
+Flat vector illustration, screen-print look, printed in exactly THREE flat inks and nothing else:
+1) cream   #F4E0C6
+2) orange  #DC723F
+3) near-black #241A15
+
+Strictly three inks. Every region is ONE flat colour with hard edges between inks.
+No gradients, no shading, no soft shadows, no glow, no transparency inside the figure,
+no texture inside the figure. Transparent background.
+```
+
+Negative / exclusion terms worth adding: `gradient, soft shading, airbrush, glow, drop shadow,
+semi-transparent, more than three colours, watermark, text, signature`.
+
+### Sizing
+
+| use | long side |
+| --- | --- |
+| face close-up, or anything that will be magnified past 2x | 3000 px or more |
+| bust, portrait, full body | 2000 px or more |
+
+Below these, a 4K close-up has no detail left to keep: the pixels are stretched and the edge
+softens. If the source is smaller, either draw it smaller on screen, or trace it and accept that the
+traced outline is the level of detail you actually have.
+
+### Framing
+
+Leave **at least 5% margin** on every side, and more above the head. A cut edge cannot be
+reconstructed: a cropped image can only be used bleeding off the frame or off a panel edge, which
+dictates the composition for the rest of the project. Ask for uncropped art and crop later.
+
+### Registration between poses
+
+If the same character appears in several poses and you want to cut between them, they have to share
+a canvas size and land on the same points. Put these in the prompt:
+
+```
+Same canvas size and same scale as the reference image.
+The chin, the hair ornament and the collar must land on identical coordinates in every pose.
+Keep the head at the same tilt unless the prompt asks for a different tilt.
+```
+
+If the generator will not hold the registration, measure it after the fact: take the chin of each
+pose, compute the scale and offset that maps it onto the reference pose, and store those numbers
+next to the plates. That is the same `s = scale, t = (dx, dy)` correction the reference project
+applies to its sibling busts.
+
+### Faces
+
+Faceless art is the robust choice: it cannot be misdrawn, it cannot be animated wrongly, and it
+survives magnification. When a face is needed, keep the face flat and keep it to one state per
+image — the reference project lets a character open her eye in exactly one image and forbids
+animating the mouth anywhere.
+
+If several images share a face, ask for them to be the same image with only the eyes changed, so
+the rest stays pixel-identical.
+
+### Layers, if the tool offers them
+
+Asking for **one layer per ink** removes the in-app separation step entirely and makes misregistration
+cleaner, because each plate is already a real layer. Worth it when the generator supports it.
+
+## Verification loop
+
+```
+node scripts/three-ink.mjs check art.png
+```
+
+Then fix the source against the report, one item at a time:
+
+| report says | what to change in the prompt |
+| --- | --- |
+| dust pixels below alpha 16, some carrying a stray colour | ask for a cleaner transparent background, no halo, no anti-aliased fringe |
+| body pixels are not fully opaque | ask for a hard matte; a generator that anti-aliases the whole figure cannot be fixed downstream |
+| a large share sits off the mixing lines | a fourth colour crept in — name the three inks again, and name the colours to avoid |
+| coverage share of one ink is near zero | that ink is missing from the pose; ask for it explicitly |
+
+Re-run `check` after each regeneration. Two or three rounds is normal; a source that passes cleanly
+is worth the wait, because every downstream plate inherits its quality.
+
+## What you get
+
+`check` only reports. The plates come from `separate`, and the plate order, the cumulative masks
+and the print rules are in `references/printing-rules.md`.

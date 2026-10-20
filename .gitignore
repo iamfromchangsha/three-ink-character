@@ -1,0 +1,9 @@
+# scratch / build output
+.tmp/
+out/
+node_modules/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+*.log
