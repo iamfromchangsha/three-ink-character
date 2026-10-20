@@ -47,6 +47,24 @@ into independent layers destroys exactly that property.
 To lay the separations side by side instead of on top of each other (a "proof" look), print each
 plate with the plates above it subtracted, so each ink occupies only its own area.
 
+### Trapping, the alternative
+
+There is a second way to build the plates: as exact complements, each ink covering only its own
+territory, with nothing under it. That is how a commercial separation works, and it is what a
+screen-printing house would ask for.
+
+It has one problem: shift a complement plate and the area it vacated is simply *empty*, so the
+print tears open a hole. Print practice solves this with **trapping** (套准加放): each plate gets
+a thin outline in its own colour, so it swells slightly past its boundary and covers the gap that
+opens. In SVG that is a `stroke` with the plate's own `fill`, `stroke-linejoin="round"`, and a
+width of twice the trap distance; on a canvas it is the same plate printed nine times, once at the
+centre and once in each of the 8 neighbours.
+
+The cumulative masks used here avoid the problem instead of compensating for it, which is why the
+tool does not need trapping. If you rebuild the plates as complements — or you take the plates
+from a different source — add trapping, or the misregistration will read as damage rather than as a
+press defect.
+
 ## Misregistration is the animation
 
 The main way a printed character moves is by moving its plates apart by a few pixels and sliding them

@@ -92,6 +92,11 @@ any screen — without ever redrawing the figure.
    The seed is a point in source pixels; the tool floods the label map and returns the connected
    patch of that ink around it. A reaching hand, an ear, a lock of hair cut this way stays in
    register with the figure and inherits the same three inks. A hand-drawn mask never does.
+   The patch carries **one** ink, so the outline that gives the part its shape stays behind in the
+   figure. To keep it, take the same region in the black plate as well (`--ink black`, a seed on
+   the outline) and print the two in the normal cream-then-black order; to pull the outline in from
+   the surrounding art, flood the black plate outwards from the skin in a few bounded passes
+   rather than cutting at a fixed radius, or the flood runs into the hair.
 
 7. **Record anchor points.**
    Note the coordinates you used (chin, flower, collar, hand, eye) in a `regions.json` next to the
