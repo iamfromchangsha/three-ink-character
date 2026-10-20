@@ -99,6 +99,26 @@ Then fix the source against the report, one item at a time:
 Re-run `check` after each regeneration. Two or three rounds is normal; a source that passes cleanly
 is worth the wait, because every downstream plate inherits its quality.
 
+### When the background is faked
+
+Asking for a transparent background does not get you one. Most generators bake in a flat colour, and
+some draw a grey-and-white **checkerboard** to look transparent. The checkerboard is the dangerous
+case: it is two achromatic greys, so the separator reads it as a fourth colour and smears it across
+the figure.
+
+Do not regenerate your way out of this — the same generator will do it again. Clean the matte:
+
+```
+node scripts/clean-matte.mjs raw.png --out clean.png --light-ink cream
+```
+
+The tool measures the checkerboard period from the image, verifies the lattice, then solves the
+coverage of every pixel against the background and snaps it to the nearest flat ink, writing alpha 0
+or 255. Highlights enclosed by the figure are kept as the light ink. Then run `check` again.
+
+If the tool refuses — it says the border is not a flat surface — then the background really is
+something else, and that one does need regenerating.
+
 ## What you get
 
 `check` only reports. The plates come from `separate`, and the plate order, the cumulative masks

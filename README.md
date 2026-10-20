@@ -57,6 +57,17 @@ node $S trace    art.png --out out/figure.svg --ink black
 node $S part     art.png --ink cream --seed 290,1100 --out out/hand.png
 ```
 
+If the generator faked a transparent background — a flat colour, or a grey-and-white checkerboard —
+clean the matte before checking:
+
+```bash
+node skills/three-ink-character/scripts/clean-matte.mjs raw.png --out clean.png --light-ink cream
+```
+
+It recovers the background (measuring the checkerboard period from the image), solves every pixel's
+coverage against it, and writes a hard matte (alpha 0 or 255) with flat ink colours. Highlights
+enclosed by the figure — catchlights in the eyes — are kept as the light ink.
+
 Quote every hex value, and write roles as `name:#hex`:
 `--roles 'cream:#f4e0c4,orange:#db723f,black:#2a1b16'`. An unquoted `#` starts a comment in
 PowerShell, and a malformed role is rejected rather than ignored — a typo fails loudly instead of
@@ -98,6 +109,7 @@ skills/three-ink-character/
 ├── SKILL.md
 ├── scripts/
 │   ├── three-ink.mjs        separate / check / print / trace / part
+│   ├── clean-matte.mjs      recover a faked background, write a hard matte
 │   ├── png.mjs              minimal PNG reader + writer, no dependencies
 │   └── make-test-image.mjs  synthetic three-ink fixture generator
 └── references/

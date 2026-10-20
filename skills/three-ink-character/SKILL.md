@@ -54,6 +54,22 @@ any screen — without ever redrawing the figure.
    A large off-line share means a fourth colour is really present. That one is worth regenerating
    for, because a fourth tone is a design decision, not a defect.
 
+   **Watch for a faked background.** Image generators rarely give a real transparent background; they
+   bake in a flat colour or, worse, draw a grey-and-white checkerboard to look transparent. Either
+   way `check` will report a dirty matte, and a checkerboard is a fourth colour that would smear
+   across the figure. Fix it with the bundled tool rather than by regenerating:
+
+   ```
+   node scripts/clean-matte.mjs <raw.png> --out <clean.png> --light-ink cream
+   ```
+
+   It recovers the background (a flat colour, or a two-tone checkerboard whose period it measures
+   from the image), solves `P = a * C + (1 - a) * B` for every pixel, and writes a **hard matte**
+   (alpha 0 or 255) with flat ink colours. Achromatic bright pixels enclosed by the figure — the
+   catchlights in the eyes — are kept as the light ink. It stops with an explicit message when the
+   border is not a flat surface, rather than producing a bad matte. Run `check` on the result; a
+   clean source reports *separable — three flat inks, clean matte, ready for plates*.
+
 2. **Separate once, at load time, never per frame.**
    `node scripts/three-ink.mjs separate <src.png> --out <dir>`
    Produces three **cumulative** plates (`plate0_all`, `plate1_orange_black`, `plate2_black`), a
