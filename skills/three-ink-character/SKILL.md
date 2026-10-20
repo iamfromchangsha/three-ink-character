@@ -72,11 +72,17 @@ any screen — without ever redrawing the figure.
    ```
 
    It recovers the background (a flat colour, or a two-tone checkerboard whose period it measures
-   from the image), solves `P = a * C + (1 - a) * B` for every pixel, and writes a **hard matte**
-   (alpha 0 or 255) with flat ink colours. Achromatic bright pixels enclosed by the figure — the
-   catchlights in the eyes — are kept as the light ink. It stops with an explicit message when the
-   border is not a flat surface, rather than producing a bad matte. Run `check` on the result; a
-   clean source reports *separable — three flat inks, clean matte, ready for plates*.
+   from the image — light *or* dark), solves `P = a * C + (1 - a) * B` for every pixel, and writes a
+   **hard matte** (alpha 0 or 255) with flat ink colours. Achromatic bright pixels enclosed by the
+   figure — the catchlights in the eyes — are kept as the light ink. It stops with an explicit
+   message when the border is not a flat surface, rather than producing a bad matte. Run `check` on
+   the result; a clean source reports *separable — three flat inks, clean matte, ready for plates*.
+
+   Two things the tool cannot do for you: a source delivered as a **JPEG** (no alpha, and its
+   compression rings along every edge) should be converted to PNG first, and a region of the figure
+   that is the same flat colour as one of the background levels *and* touches the canvas edge — a
+   white dress on a white checkerboard — is unrecoverable by colour alone. Ask for such a region in
+   a distinct colour (cream, not white) in the first place.
 
 2. **Separate once, at load time, never per frame.**
    `node scripts/three-ink.mjs separate <src.png> --out <dir>`

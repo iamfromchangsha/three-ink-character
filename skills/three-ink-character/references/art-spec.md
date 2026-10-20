@@ -119,6 +119,20 @@ or 255. Highlights enclosed by the figure are kept as the light ink. Then run `c
 If the tool refuses — it says the border is not a flat surface — then the background really is
 something else, and that one does need regenerating.
 
+Three things it taught us, worth knowing before you prompt:
+
+- **The faked background comes in both flavours.** Sometimes it is light (white and pale grey
+  squares), sometimes it is dark (grey and near-black squares). The tool measures which; do not
+  assume a light one.
+- **The generator may hand you a JPEG.** A JPEG has no alpha at all, and its compression leaves
+  ringing along every edge, which turns into speckle in the flat areas. Convert it to PNG first and
+  ask for PNG output; the tool can cope with a little ringing, but not with a lot.
+- **One thing cannot be recovered: a figure region that is the same flat colour as one of the
+  background levels and touches the edge of the canvas.** A white dress on a white checkerboard is
+  literally the same colour as the background, and no amount of geometry can separate them. Give
+  that region its own colour in the prompt — ask for the dress in cream, not white — and the
+  problem disappears.
+
 ## What you get
 
 `check` only reports. The plates come from `separate`, and the plate order, the cumulative masks

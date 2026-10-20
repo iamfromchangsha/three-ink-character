@@ -75,27 +75,34 @@ const ring = [];
 
 /* ------------------------------------------------- background model detection */
 
-// The border holds one or two achromatic levels. Otsu's method splits them
-// without assuming where they are: it finds the threshold that best separates
-// the histogram, which for a checkerboard is the gap between white and grey.
-const otsu = (values) => {
-  const bins = new Array(256).fill(0);
-  for (const v of values) bins[Math.max(0, Math.min(255, Math.round(v)))]++;
-  const total = values.length;
-  let sum = 0;
-  for (let i = 0; i < 256; i++) sum += i * bins[i];
-  let sumB = 0, wB = 0, best = 0, thr = 127;
+// The border holds two achromatic levels (white and grey of a checkerboard, or
+// one flat colour). Find them as the two strongest separated peaks of the
+// histogram, not by thresholding: a figure that reaches the image edge (a
+// white dress, say) adds its own bright cluster, and a threshold would then
+// split the background instead of separating it from the figure.
+const peaks = (values) => {
+  const hist = new Array(256).fill(0);
+  for (const v of values) hist[Math.max(0, Math.min(255, Math.round(v)))]++;
+  const sm = hist.map((_, i) => {
+    let s = 0, n = 0;
+    for (let k = -2; k <= 2; k++) { const j = i + k; if (j >= 0 && j < 256) { s += hist[j]; n++; } }
+    return s / n;
+  });
+  let p1 = 0;
+  for (let i = 1; i < 256; i++) if (sm[i] > sm[p1]) p1 = i;
+  let p2 = -1, best = 0;
   for (let i = 0; i < 256; i++) {
-    wB += bins[i];
-    if (!wB) continue;
-    const wF = total - wB;
-    if (!wF) break;
-    sumB += i * bins[i];
-    const mB = sumB / wB, mF = (sum - sumB) / wF;
-    const between = wB * wF * (mB - mF) * (mB - mF);
-    if (between > best) { best = between; thr = i; }
+    if (Math.abs(i - p1) < 15) continue;
+    if (sm[i] > best) { best = sm[i]; p2 = i; }
   }
-  return thr;
+  if (p2 < 0) return null;
+  const mean = (p) => {
+    const sel = values.filter((v) => Math.abs(v - p) <= 6);
+    return sel.length ? { mean: sel.reduce((s, v) => s + v, 0) / sel.length, n: sel.length } : null;
+  };
+  const a = mean(p1), b = mean(p2);
+  if (!a || !b || a.n < 500 || b.n < 500) return null;
+  return [a.mean, b.mean].sort((x, y) => x - y);
 };
 
 const ringLum = [];
@@ -103,11 +110,12 @@ for (const [x, y] of ring) if (isAchromatic(x, y)) ringLum.push(lumAt(x, y));
 if (ringLum.length < 100) {
   throw new Error('the border has no flat colour — the background is not a plain surface; regenerate the source');
 }
-const thr = otsu(ringLum);
-const lo = ringLum.filter((v) => v <= thr), hi = ringLum.filter((v) => v > thr);
-const mean = (a) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : NaN);
-const gLo = mean(lo), gHi = mean(hi);
-const twoTone = Number.isFinite(gLo) && Number.isFinite(gHi) && (gHi - gLo) > 12 && lo.length > 500 && hi.length > 500;
+const lv = peaks(ringLum);
+if (!lv) {
+  throw new Error('the border does not hold two flat levels — regenerate the source');
+}
+const [gLo, gHi] = lv;
+const twoTone = gHi - gLo > 12;
 
 let model;
 if (twoTone) {
@@ -172,6 +180,7 @@ console.log(`background model: ${model.kind} — ${model.detail}`);
 /* ------------------------------------------------------------- the un-mix */
 
 // background mask first, so highlights enclosed by the figure can be kept
+const bgLo = Math.min(gLo, gHi), bgHi = Math.max(gLo, gHi);
 const bgFlag = new Uint8Array(W * H);
 {
   const stack = [];
@@ -181,10 +190,14 @@ const bgFlag = new Uint8Array(W * H);
     if (bgFlag[i]) return;
     const [r, g, b] = rgbAt(x, y);
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-    // background = achromatic and bright. The test must NOT compare against the
-    // model value: the soft border between two squares of a checkerboard sits
-    // between the two levels, and a strict test would stop the fill there.
-    if (mx - mn > 16 || mn < 195) return;
+    // Background = achromatic AND inside the range of the two background levels.
+    // The test must NOT compare against a single model value: the soft border
+    // between two squares of a checkerboard sits between the two levels, and a
+    // strict test would stop the fill there. The range also makes the tool work
+    // on a DARK faked background, not just a light one.
+    if (mx - mn > 16) return;
+    const lum = (r + g + b) / 3;
+    if (lum < bgLo - 16 || lum > bgHi + 16) return;
     bgFlag[i] = 1; stack.push(i);
   };
   for (let x = 0; x < W; x++) { push(x, 0); push(x, H - 1); }
@@ -199,6 +212,9 @@ const outBuf = Buffer.alloc(W * H * 4);
 const counts = [0, 0, 0];
 let bg = 0, highlights = 0, hard = 0;
 
+// 0 = background, 1..3 = the ink index + 1
+const inkOf = new Uint8Array(W * H);
+
 for (let y = 0; y < H; y++) {
   for (let x = 0; x < W; x++) {
     const i = y * W + x;
@@ -212,6 +228,7 @@ for (let y = 0; y < H; y++) {
       const k = INK_KEY[lightInkName];
       const C = INKC[k];
       outBuf[o] = C[0]; outBuf[o + 1] = C[1]; outBuf[o + 2] = C[2]; outBuf[o + 3] = 255;
+      inkOf[i] = k + 1;
       counts[k]++; highlights++; continue;
     }
 
@@ -231,9 +248,52 @@ for (let y = 0; y < H; y++) {
     if (bestA < 0.5) { outBuf[o + 3] = 0; bg++; continue; }
     const C = INKC[best];
     outBuf[o] = C[0]; outBuf[o + 1] = C[1]; outBuf[o + 2] = C[2]; outBuf[o + 3] = 255;
+    inkOf[i] = best + 1;
     counts[best]++;
     if (bestA < 0.995) hard++;
   }
+}
+
+// ---- despeckle -------------------------------------------------------------
+// A JPEG source (or a noisy generator) leaves isolated pixels of the wrong ink
+// inside flat areas. Only ISOLATED pixels are corrected: a pixel whose four
+// orthogonal neighbours all disagree with it takes the ink its neighbourhood
+// mostly has. Edges are left alone, so the silhouette does not erode.
+{
+  const fixed = new Uint8Array(inkOf);
+  let n = 0;
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      const k = inkOf[i];
+      if (!k) continue;
+      const up = inkOf[i - W], dn = inkOf[i + W], lf = inkOf[i - 1], rt = inkOf[i + 1];
+      if (up === k || dn === k || lf === k || rt === k) continue;   // not isolated
+      const tally = new Map();
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const v = inkOf[(y + dy) * W + (x + dx)];
+          if (v && v !== k) tally.set(v, (tally.get(v) || 0) + 1);
+        }
+      }
+      let win = 0, winN = 0;
+      for (const [v, c] of tally) if (c > winN) { winN = c; win = v; }
+      if (win && winN >= 4) { fixed[i] = win; n++; }
+    }
+  }
+  if (n) {
+    for (let i = 0; i < W * H; i++) {
+      const k = fixed[i];
+      if (!k) continue;
+      const C = INKC[k - 1];
+      const o = i * 4;
+      outBuf[o] = C[0]; outBuf[o + 1] = C[1]; outBuf[o + 2] = C[2]; outBuf[o + 3] = 255;
+    }
+    // recount
+    counts[0] = counts[1] = counts[2] = 0;
+    for (let i = 0; i < W * H; i++) { const k = fixed[i]; if (k) counts[k - 1]++; }
+  }
+  console.log(`  despeckled ${n} isolated pixels`);
 }
 
 fs.mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
