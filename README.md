@@ -57,6 +57,27 @@ node $S trace    art.png --out out/figure.svg --ink black
 node $S part     art.png --ink cream --seed 290,1100 --out out/hand.png
 ```
 
+### Palettes
+
+The default print palette is **Claude's brand orange**, inherited from the film this technique comes
+from — in it the character *is* Claude, and she is orange because the colour system means "orange =
+the one who is talking".
+
+| palette | cream | orange | near-black | ground |
+| --- | --- | --- | --- | --- |
+| `claude` (default) | `#faf9f5` | `#d97757` | `#1f1e1d` | `#262624` |
+| `mono` | `#f4f1ea` | `#b3a89b` | `#232220` | `#1b1a18` |
+
+```bash
+node $S print art.png --out out/print.png --palette mono
+node $S print art.png --out out/print.png --roles 'orange:#c06040'   # one role only
+```
+
+Two different colour sets, and conflating them is the usual mistake: the **paper inks** are the
+colours the *source art* is painted with (`#f4e0c6` / `#dc723f` / `#241a15`, overridable with
+`--inks`) — the separator looks for those; the **print roles** are the colours the plates are
+printed in. Every image's own inks are measured at run time, so the paper inks are only seeds.
+
 If the generator faked a transparent background — a flat colour, or a grey-and-white checkerboard —
 clean the matte before checking:
 
@@ -110,6 +131,7 @@ skills/three-ink-character/
 ├── scripts/
 │   ├── three-ink.mjs        separate / check / print / trace / part
 │   ├── clean-matte.mjs      recover a faked background, write a hard matte
+│   ├── palette.mjs          the paper inks and the named print palettes
 │   ├── png.mjs              minimal PNG reader + writer, no dependencies
 │   └── make-test-image.mjs  synthetic three-ink fixture generator
 └── references/

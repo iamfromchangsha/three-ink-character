@@ -18,6 +18,12 @@ picture, so the same separations can be re-printed in a different state without 
 | `sub` / `mute` | dimmer text | secondary text, and **the character's cream plate when she shares the frame with the user's cream interface** |
 | `bloom` | the colour that is allowed to glow | saturated accents only |
 
+The default palette for these roles is `claude` — cream `#faf9f5`, orange `#d97757` (Claude's brand
+orange), near-black `#1f1e1d` on a warm near-black ground `#262624`. The orange is not arbitrary: in
+the film this technique comes from, the character *is* Claude, and she is orange because the colour
+system means "orange = the one who is talking". `--palette mono` keeps the structure and drops the
+brand, for a character who is not that AI.
+
 Two consequences that are easy to get wrong:
 
 - **Cream belongs to the user.** When the character's cream plate and the user's cream interface are

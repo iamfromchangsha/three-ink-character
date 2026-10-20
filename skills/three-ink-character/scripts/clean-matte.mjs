@@ -28,38 +28,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { decodePNG, encodePNG } from './png.mjs';
+import { PAPER_INKS, hexToRgb, paperInkRGB } from './palette.mjs';
 
-const INK_DEFAULT = { cream: '#f4e0c6', orange: '#dc723f', black: '#241a15' };
 const INK_KEY = { cream: 0, orange: 1, black: 2 };
 
 const clamp = (v, lo = 0, hi = 1) => (v < lo ? lo : v > hi ? hi : v);
-const hex = (s) => {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(s).trim());
-  if (!m) throw new Error(`not a colour: ${s}`);
-  const h = m[1].length === 3 ? m[1].replace(/./g, '$&$&') : m[1];
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-};
+const hex = (s) => hexToRgb(s);
 
 const args = process.argv.slice(2);
 const src = args[0];
 const out = args[args.indexOf('--out') + 1];
 if (!src || !out) {
-  console.error('usage: node clean-matte.mjs <src.png> --out <clean.png> [--inks cream:#f4e0c6,orange:#dc723f,black:#241a15] [--light-ink cream]');
+  console.error(`usage: node clean-matte.mjs <src.png> --out <clean.png> [--inks 'cream:${PAPER_INKS.cream},orange:${PAPER_INKS.orange},black:${PAPER_INKS.black}'] [--light-ink cream]`);
   process.exit(2);
 }
 const inkSpec = args.includes('--inks') ? args[args.indexOf('--inks') + 1] : null;
 const lightInkName = args.includes('--light-ink') ? args[args.indexOf('--light-ink') + 1] : null;
 
-const INKS = { ...INK_DEFAULT };
-if (inkSpec) {
-  for (const part of String(inkSpec).split(',')) {
-    const m = /^([a-z]+)\s*[:=]\s*(.+)$/i.exec(part.trim());
-    if (!m) throw new Error(`bad --inks entry "${part}" — write name:#hex`);
-    if (!(m[1].toLowerCase() in INK_KEY)) throw new Error(`unknown ink "${m[1]}" (cream, orange, black)`);
-    INKS[m[1].toLowerCase()] = m[2];
-  }
-}
-const INKC = ['cream', 'orange', 'black'].map((k) => hex(INKS[k]));
+const INKC = paperInkRGB(inkSpec);
 
 const img = decodePNG(fs.readFileSync(src));
 const { width: W, height: H, data: d } = img;

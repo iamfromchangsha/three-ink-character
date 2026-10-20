@@ -24,11 +24,19 @@ any screen — without ever redrawing the figure.
 - **The source image** (path to a PNG). If the user has none, point them at
   `references/art-spec.md` — it carries the prompt and the checklist for an image generator that
   produces a source this pipeline can actually separate.
-- **What the inks mean.** Defaults: cream = the user, orange = the character, black = shadow.
-  Overridable per plate with `--roles 'cream:#faf9f5,orange:#d97757,black:#1f1e1d'`.
-  Quote the whole value and use `name:#hex` — an unquoted `#` starts a comment in PowerShell, and
-  a malformed entry is rejected rather than ignored, so a typo fails loudly instead of silently
-  printing the default palette.
+- **What the inks mean.** Two different sets, and conflating them is the usual mistake:
+  - **Paper inks** — the colours the *source art* is painted with: cream `#f4e0c6`, orange
+    `#dc723f`, near-black `#241a15`. The separator looks for these, so the source must be painted
+    in them (or close enough that the per-image refinement finds it). Override with
+    `--inks 'orange:#c06040'`.
+  - **Print roles** — the colours the plates are *printed in*: cream `#faf9f5`, orange
+    **`#d97757`**, near-black `#1f1e1d` on a warm near-black ground `#262624`. Override with
+    `--roles 'orange:#c06040'`.
+- **Which print palette.** The default is `claude`: Claude's brand orange. That is inherited from
+  the film this technique comes from — in it the character *is* Claude, and she is orange because
+  the whole colour system means "orange = the one who is talking". Keep the default when the
+  character is that AI; use `--palette mono` when she is someone else and the brand would be
+  borrowed, or name single roles with `--roles`.
 - **Where the outputs go.** `--out <dir>`.
 - **Sibling poses.** If several poses of the same character must cut against each other, they need the
   same canvas size and shared anchor points; ask whether the user has a set already, otherwise say
@@ -88,6 +96,8 @@ any screen — without ever redrawing the figure.
      dimmer cream role, or the two creams become indistinguishable;
    - the black plate is nearly the page colour, so every use needs paper, a pool of light or a
      keyline behind it, or she disappears into the background.
+   The default palette is `claude` (cream `#faf9f5`, orange `#d97757`, near-black `#1f1e1d`, ground
+   `#262624`); `--palette mono` keeps the same three-ink structure without the brand orange.
    `references/printing-rules.md` has the role table and the misregistration, halftone and glyph
    recipes.
 

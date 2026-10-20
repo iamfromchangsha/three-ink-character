@@ -11,11 +11,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { encodePNG, makeImage } from './png.mjs';
+import { PAPER_INKS, hexToRgb } from './palette.mjs';
 
 const INKS = {
-  cream: [244, 224, 198],
-  orange: [220, 114, 63],
-  black: [36, 26, 21],
+  cream: hexToRgb(PAPER_INKS.cream),
+  orange: hexToRgb(PAPER_INKS.orange),
+  black: hexToRgb(PAPER_INKS.black),
   rust: [150, 72, 40],   // a fourth tone, between orange and black
 };
 

@@ -1,4 +1,4 @@
-// three-ink.mjs — turn a flat-colour character image into three ink plates.
+﻿// three-ink.mjs — turn a flat-colour character image into three ink plates.
 //
 // Pipeline (one pass, at load time in any renderer):
 //   1. matte cleanup        alpha < 16 is dust, alpha >= 250 becomes solid
@@ -22,11 +22,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { decodePNG, encodePNG, makeImage, toGreyPNG } from './png.mjs';
+import { PAPER_INKS, DEFAULT_PALETTE, PALETTES, hexToRgb, paletteByName, rolesFrom } from './palette.mjs';
 
 export const INK_NAMES = ['cream', 'orange', 'black'];
 
-/** Seed inks, refined per image at run time. */
-const INK_RGB = [[244, 224, 198], [220, 114, 63], [36, 26, 21]];
+/** Seed inks — the colours the source art is painted with. Refined per image at run time. */
+const INK_RGB = [PAPER_INKS.cream, PAPER_INKS.orange, PAPER_INKS.black].map(hexToRgb);
 const INK_KEY = { cream: 0, orange: 1, black: 2 };
 
 const clamp = (v, lo = 0, hi = 1) => (v < lo ? lo : v > hi ? hi : v);
@@ -298,13 +299,20 @@ export function partOf(R, seed, inkName = 'cream', grow = 2) {
 const USAGE = `three-ink.mjs — separate a flat-colour character image into three ink plates
 
   node three-ink.mjs check    <src.png> [--json]
-  node three-ink.mjs separate <src.png> --out <dir> [--roles 'cream:#faf9f5,orange:#d97757,black:#1f1e1d']
-  node three-ink.mjs print    <src.png> --out <file.png> [--roles ...] [--bg '#262624']
+  node three-ink.mjs separate <src.png> --out <dir> [--palette ${DEFAULT_PALETTE}] [--roles 'orange:#d97757']
+  node three-ink.mjs print    <src.png> --out <file.png> [--palette ${DEFAULT_PALETTE}] [--roles ...] [--bg '#262624']
   node three-ink.mjs trace    <src.png> --out <file.svg> [--ink cream|orange|black|all] [--eps 0.25]
   node three-ink.mjs part     <src.png> --ink cream --seed x,y --out <file.png> [--grow 2]
 
-Roles default to the palette of the reference project:
-  cream #faf9f5   orange #d97757   black #1f1e1d   bg #262624
+Palettes (what the plates are PRINTED in):
+${Object.entries(PALETTES).map(([k, p]) => `  ${k.padEnd(8)} cream ${p.cream}  orange ${p.orange}  black ${p.black}  bg ${p.bg}`).join('\n')}
+  The default is "claude": Claude's brand orange, inherited from the reference
+  film, where orange = the AI and the AI is Claude. Use --palette mono when the
+  character is not that orange and the meaning would be borrowed.
+
+Paper inks (what the SOURCE is painted with): cream ${PAPER_INKS.cream}  orange ${PAPER_INKS.orange}  black ${PAPER_INKS.black}
+  These are only seeds for finding the inks in the image; every image's own
+  colours are measured at run time.
 
 Quote every hex value: in PowerShell a bare #262624 starts a comment, and
 in bash #262624 may be read as the start of a word. Write --bg '#262624'.
@@ -325,31 +333,10 @@ function parseArgs(argv) {
 }
 
 function parseHex(hex) {
-  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex).trim());
-  if (!m) throw new Error(`not a colour: ${hex}`);
-  const h = m[1].length === 3 ? m[1].replace(/./g, '$&$&') : m[1];
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  return hexToRgb(hex);
 }
 
-function parseRoles(spec) {
-  const roles = { cream: [0xfa, 0xf9, 0xf5], orange: [0xd9, 0x77, 0x57], black: [0x1f, 0x1e, 0x1d] };
-  if (!spec) return roles;
-  for (const part of String(spec).split(',')) {
-    const s = part.trim();
-    if (!s) continue;
-    // accept both "cream:#hex" and "cream=#hex"; ignore a bad entry loudly
-    const m = /^([a-z]+)\s*[:=]\s*(.+)$/i.exec(s);
-    if (!m) throw new Error(`bad --roles entry "${part}" — write name:#hex, e.g. cream:#faf9f5`);
-    const name = m[1].toLowerCase();
-    if (!(name in roles)) throw new Error(`unknown role "${name}" (cream, orange, black)`);
-    try {
-      roles[name] = parseHex(m[2]);
-    } catch {
-      throw new Error(`bad colour in --roles entry "${part}" — expected #rgb or #rrggbb`);
-    }
-  }
-  return roles;
-}
+const rgbCss = (rgb) => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
 
 function loadImage(file) {
   if (!fs.existsSync(file)) throw new Error(`file not found: ${file}`);
@@ -432,7 +419,7 @@ function cmdSeparate(args) {
   if (!args.out) throw new Error('separate needs --out <dir>');
   const img = loadImage(src);
   const R = separate(img);
-  const roles = parseRoles(args.roles);
+  const roles = rolesFrom(args.roles, args.palette);
   const dir = path.resolve(args.out);
   fs.mkdirSync(dir, { recursive: true });
   const stem = path.basename(src).replace(/\.png$/i, '');
@@ -475,8 +462,8 @@ function cmdPrint(args) {
   if (!args.out) throw new Error('print needs --out <file.png>');
   const img = loadImage(src);
   const R = separate(img);
-  const roles = parseRoles(args.roles);
-  const bg = parseHex(args.bg || '#262624');
+  const roles = rolesFrom(args.roles, args.palette);
+  const bg = args.bg ? parseHex(args.bg) : roles.bg;
   const out = makeImage(R.W, R.H, () => [bg[0], bg[1], bg[2], 255]);
   // print order: cream, then orange+black, then black — lower plates run under upper ones
   const paint = (cover, rgb) => {
@@ -512,7 +499,7 @@ function cmdTrace(args) {
     }
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${R.W} ${R.H}" width="${R.W}" height="${R.H}">\n` +
-    paths.map((p) => `  <path d="${p.d}" fill="none" stroke="#d97757" stroke-width="2"/>`).join('\n') +
+    paths.map((p) => `  <path d="${p.d}" fill="none" stroke="${rgbCss(rolesFrom(args.roles, args.palette).orange)}" stroke-width="2"/>`).join('\n') +
     `\n</svg>\n`;
   writeOut(args.out, svg);
   console.log(`trace       ${path.resolve(args.out)}  (${paths.length} loops, ink ${which})`);
@@ -560,7 +547,7 @@ function cmdPart(args) {
       for (let x = xa; x < xb; x++) full[y * R.W + x] = 255;
     }
   }
-  const roles = parseRoles(args.roles);
+  const roles = rolesFrom(args.roles, args.palette);
   const inkName = String(args.ink || 'cream');
   // cut-out keeps the rest of the canvas transparent, so it can be composited anywhere
   const rgb = roles[inkName] || [250, 249, 245];
