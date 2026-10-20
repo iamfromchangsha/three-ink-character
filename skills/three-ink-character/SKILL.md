@@ -39,10 +39,20 @@ any screen — without ever redrawing the figure.
 1. **Check the source before separating it.**
    `node scripts/three-ink.mjs check <src.png>`
    The separation assumes a clean matte (alpha 255 inside the figure, 0 outside) and colours that sit
-   on the three mixing lines. When the verdict flags dust, a non-opaque body, or a large off-line
-   share, fix the **source** (regenerate it against `references/art-spec.md`) rather than patching
-   pixels: hand-patched pixels become a fourth tone that the plates will split between two inks, and
-   the character quietly loses its flatness.
+   on the three mixing lines. The tool absorbs the usual AI artefacts by itself: alpha below 16 is
+   dropped as dust, and the outer edge is thresholded at the 50% coverage line, so a figure with a
+   soft fringe still separates into hard-edged plates.
+
+   Read the verdict for what it changes. Dust and a partly transparent body are a note about the
+   *source*, not a blocker — the plates come out usable, and the trace is sharp. They matter in two
+   places: when the figure will be magnified past about 2x (the anti-aliased edge becomes a wide
+   soft band in the bitmap even though the traced path stays hard), and when the user wants a
+   genuinely print-grade source, which means regenerating against `references/art-spec.md`. Never
+   patch pixels to fix the matte: patched pixels become a fourth tone that the plates split
+   between two inks, and the character quietly loses its flatness.
+
+   A large off-line share means a fourth colour is really present. That one is worth regenerating
+   for, because a fourth tone is a design decision, not a defect.
 
 2. **Separate once, at load time, never per frame.**
    `node scripts/three-ink.mjs separate <src.png> --out <dir>`
@@ -101,9 +111,11 @@ Do not paste large base64 or dump the whole plates into the chat. Reference file
 
 ## Failure handling
 
-- **`check` says the matte is dirty or a fourth colour is present** → the source has to be
-  regenerated. Say so plainly and hand over `references/art-spec.md`; do not silently clean pixels
-  in a loop, because the cleaned pixels will read as a new tone.
+- **`check` says the matte is dirty** → report it, keep going. The plates will still be correct;
+  regenerate the source only if the figure is being magnified or the user wants print-grade art.
+- **`check` says a fourth colour is present** → the source has to be regenerated. Say so plainly
+  and hand over `references/art-spec.md`; do not silently clean pixels in a loop, because the
+  cleaned pixels will read as a new tone.
 - **`part` finds no ink near the seed** → the seed sits on another ink or on a boundary between two.
   Move the seed onto the wanted ink (the label map image shows where it is) or pick a different ink.
 - **A plate shows seams** → the plates were flattened or painted out of order. Keep the cumulative
