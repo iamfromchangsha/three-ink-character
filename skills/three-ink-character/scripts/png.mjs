@@ -188,20 +188,3 @@ export function toGreyPNG(img, coverage) {
   }
   return encodePNG({ width, height, data });
 }
-
-/** Paint an RGB image where `coverage[i]` (0..255) is the alpha of `rgb`. */
-export function tintPNG(img, coverage, rgb, background = null) {
-  const { width, height } = img;
-  const data = Buffer.alloc(width * height * 4);
-  for (let i = 0; i < width * height; i++) {
-    const a = coverage[i] / 255;
-    if (background) {
-      data[i * 4] = background[0]; data[i * 4 + 1] = background[1]; data[i * 4 + 2] = background[2];
-    }
-    for (let c = 0; c < 3; c++) {
-      data[i * 4 + c] = Math.round((data[i * 4 + c] ?? 0) * (1 - a) + rgb[c] * a);
-    }
-    data[i * 4 + 3] = 255;
-  }
-  return encodePNG({ width, height, data });
-}

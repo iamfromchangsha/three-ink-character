@@ -25,7 +25,10 @@ any screen — without ever redrawing the figure.
   `references/art-spec.md` — it carries the prompt and the checklist for an image generator that
   produces a source this pipeline can actually separate.
 - **What the inks mean.** Defaults: cream = the user, orange = the character, black = shadow.
-  Overridable per plate with `--roles cream=#hex,orange=#hex,black=#hex`.
+  Overridable per plate with `--roles 'cream:#faf9f5,orange:#d97757,black:#1f1e1d'`.
+  Quote the whole value and use `name:#hex` — an unquoted `#` starts a comment in PowerShell, and
+  a malformed entry is rejected rather than ignored, so a typo fails loudly instead of silently
+  printing the default palette.
 - **Where the outputs go.** `--out <dir>`.
 - **Sibling poses.** If several poses of the same character must cut against each other, they need the
   same canvas size and shared anchor points; ask whether the user has a set already, otherwise say
@@ -142,6 +145,10 @@ node "$Skill\scripts\three-ink.mjs" separate ".\src.png" --out ".\out\plates"
 
 No `npm install` step exists or is needed. Use `$env:TEMP` for scratch output. If a path contains
 spaces, quote it.
+
+**Quote every hex value.** In PowerShell a bare `#262624` starts a comment, so the argument
+disappears and the tool reports `not a colour: true`; write `--bg '#262624'` and
+`--roles 'cream:#f4e0c4,orange:#db723f,black:#2a1b16'`. The same quoting is harmless in bash.
 
 ## References
 

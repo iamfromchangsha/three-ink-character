@@ -57,6 +57,11 @@ node $S trace    art.png --out out/figure.svg --ink black
 node $S part     art.png --ink cream --seed 290,1100 --out out/hand.png
 ```
 
+Quote every hex value, and write roles as `name:#hex`:
+`--roles 'cream:#f4e0c4,orange:#db723f,black:#2a1b16'`. An unquoted `#` starts a comment in
+PowerShell, and a malformed role is rejected rather than ignored — a typo fails loudly instead of
+silently printing the default palette.
+
 `check` is the one to run first. It reports the estimated ink colours, the coverage share of each
 ink, the dust in the matte and how much of the figure falls off the three mixing lines — and says
 what to change. A source that passes cleanly is worth waiting for; a source that fails will give you

@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { decodePNG, encodePNG, makeImage, toGreyPNG, tintPNG } from './png.mjs';
+import { decodePNG, encodePNG, makeImage, toGreyPNG } from './png.mjs';
 
 export const INK_NAMES = ['cream', 'orange', 'black'];
 
@@ -298,13 +298,16 @@ export function partOf(R, seed, inkName = 'cream', grow = 2) {
 const USAGE = `three-ink.mjs — separate a flat-colour character image into three ink plates
 
   node three-ink.mjs check    <src.png> [--json]
-  node three-ink.mjs separate <src.png> --out <dir> [--roles cream=#hex,orange=#hex,black=#hex]
-  node three-ink.mjs print    <src.png> --out <file.png> [--roles ...] [--bg #hex]
+  node three-ink.mjs separate <src.png> --out <dir> [--roles 'cream:#faf9f5,orange:#d97757,black:#1f1e1d']
+  node three-ink.mjs print    <src.png> --out <file.png> [--roles ...] [--bg '#262624']
   node three-ink.mjs trace    <src.png> --out <file.svg> [--ink cream|orange|black|all] [--eps 0.25]
   node three-ink.mjs part     <src.png> --ink cream --seed x,y --out <file.png> [--grow 2]
 
 Roles default to the palette of the reference project:
   cream #faf9f5   orange #d97757   black #1f1e1d   bg #262624
+
+Quote every hex value: in PowerShell a bare #262624 starts a comment, and
+in bash #262624 may be read as the start of a word. Write --bg '#262624'.
 `;
 
 function parseArgs(argv) {
@@ -332,10 +335,18 @@ function parseRoles(spec) {
   const roles = { cream: [0xfa, 0xf9, 0xf5], orange: [0xd9, 0x77, 0x57], black: [0x1f, 0x1e, 0x1d] };
   if (!spec) return roles;
   for (const part of String(spec).split(',')) {
-    const [name, hex] = part.split(':').map((s) => s && s.trim());
-    if (!name || !hex) continue;
+    const s = part.trim();
+    if (!s) continue;
+    // accept both "cream:#hex" and "cream=#hex"; ignore a bad entry loudly
+    const m = /^([a-z]+)\s*[:=]\s*(.+)$/i.exec(s);
+    if (!m) throw new Error(`bad --roles entry "${part}" — write name:#hex, e.g. cream:#faf9f5`);
+    const name = m[1].toLowerCase();
     if (!(name in roles)) throw new Error(`unknown role "${name}" (cream, orange, black)`);
-    roles[name] = parseHex(hex);
+    try {
+      roles[name] = parseHex(m[2]);
+    } catch {
+      throw new Error(`bad colour in --roles entry "${part}" — expected #rgb or #rrggbb`);
+    }
   }
   return roles;
 }
@@ -551,7 +562,15 @@ function cmdPart(args) {
   }
   const roles = parseRoles(args.roles);
   const inkName = String(args.ink || 'cream');
-  writeOut(args.out, tintPNG(img, full, roles[inkName] || [250, 249, 245]));
+  // cut-out keeps the rest of the canvas transparent, so it can be composited anywhere
+  const rgb = roles[inkName] || [250, 249, 245];
+  const cut = Buffer.alloc(R.W * R.H * 4);
+  for (let i = 0; i < R.W * R.H; i++) {
+    const a = full[i];
+    if (!a) continue;
+    cut[i * 4] = rgb[0]; cut[i * 4 + 1] = rgb[1]; cut[i * 4 + 2] = rgb[2]; cut[i * 4 + 3] = a;
+  }
+  writeOut(args.out, encodePNG({ width: R.W, height: R.H, data: cut }));
   console.log(`part        ${path.resolve(args.out)}  (${loops.length} loops, ~${Math.round(area)} source px²)`);
   return { out: path.resolve(args.out), area };
 }
